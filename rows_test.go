@@ -317,8 +317,52 @@ func TestGetFromStringItem(t *testing.T) {
 	value, err = f.getFromStringItem(0)
 	assert.NoError(t, err)
 	assert.Empty(t, value)
+	// Test get from string item with invalid offset range
+	f.sharedStringItem = [][]uint{{0}}
+	value, err = f.getFromStringItem(0)
+	assert.Equal(t, newInvalidSharedStringIndex(0), err)
+	assert.Empty(t, value)
 	assert.NoError(t, tempFile.Close())
 	assert.NoError(t, os.Remove(tempFile.Name()))
+
+	// Test getFromStringItem when creating temporary file fails
+	f = NewFile(Options{TmpDir: filepath.Join("test", "not_exist_dir")})
+	f.Pkg.Store(defaultXMLPathSharedStrings, []byte(`<sst><si><t>a</t></si></sst>`))
+	value, err = f.getFromStringItem(0)
+	assert.Error(t, err)
+	assert.Empty(t, value)
+
+	// Test getFromStringItem with invalid XML syntax in shared strings
+	f = NewFile()
+	f.Pkg.Store(defaultXMLPathSharedStrings, MacintoshCyrillicCharset)
+	value, err = f.getFromStringItem(0)
+	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	assert.Empty(t, value)
+	assert.NoError(t, f.Close())
+
+	// Test getFromStringItem with malformed <si> element
+	f = NewFile()
+	f.Pkg.Store(defaultXMLPathSharedStrings, []byte(`<sst><si><t>a</si></sst>`))
+	value, err = f.getFromStringItem(0)
+	assert.EqualError(t, err, "XML syntax error on line 1: element <t> closed by </si>")
+	assert.Empty(t, value)
+	assert.NoError(t, f.Close())
+
+	// Test concurrent getFromStringItem initialization and reads
+	f, err = OpenFile(filepath.Join("test", "Book1.xlsx"), Options{UnzipXMLSizeLimit: 128})
+	assert.NoError(t, err)
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			val, err := f.GetCellValue("Sheet1", "A19")
+			assert.NoError(t, err)
+			assert.Equal(t, "Total:", val)
+		}()
+	}
+	wg.Wait()
+	assert.NoError(t, f.Close())
 }
 
 func TestSharedStringsReader(t *testing.T) {

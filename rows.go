@@ -369,54 +369,61 @@ func (f *File) Rows(sheet string) (*Rows, error) {
 // the shared string table returns an error, matching the in-memory path in
 // xlsxC.getValueFrom.
 func (f *File) getFromStringItem(index int) (string, error) {
-	if f.sharedStringTemp != nil {
-		if index < 0 || len(f.sharedStringItem) <= index {
-			return "", newInvalidSharedStringIndex(index)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.sharedStringTemp == nil {
+		needClose, decoder, tempFile, err := f.xmlDecoder(defaultXMLPathSharedStrings)
+		if err != nil {
+			return "", err
 		}
-		offsetRange := f.sharedStringItem[index]
-		if len(offsetRange) != 2 || offsetRange[0] > offsetRange[1] {
-			return strconv.Itoa(index), nil
+		if needClose {
+			defer func() {
+				_ = tempFile.Close()
+			}()
 		}
-		buf := make([]byte, offsetRange[1]-offsetRange[0])
-		if _, err := f.sharedStringTemp.ReadAt(buf, int64(offsetRange[0])); err != nil {
-			return strconv.Itoa(index), nil
+		sharedStringTemp, err := os.CreateTemp(f.options.TmpDir, "excelize-")
+		if err != nil {
+			return "", err
 		}
-		return string(buf), nil
-	}
-	needClose, decoder, tempFile, err := f.xmlDecoder(defaultXMLPathSharedStrings)
-	if needClose && err == nil {
-		defer func() {
-			err = tempFile.Close()
-		}()
-	}
-	f.sharedStringItem = [][]uint{}
-	f.sharedStringTemp, _ = os.CreateTemp(f.options.TmpDir, "excelize-")
-	f.tempFiles.Store(defaultTempFileSST, f.sharedStringTemp.Name())
-	var (
-		inElement string
-		i, offset uint
-	)
-	for {
-		token, _ := decoder.Token()
-		if token == nil {
-			break
-		}
-		switch xmlElement := token.(type) {
-		case xml.StartElement:
-			inElement = xmlElement.Name.Local
-			if inElement == "si" {
+		f.tempFiles.Store(defaultTempFileSST, sharedStringTemp.Name())
+		var (
+			sharedStringItem [][]uint
+			offset           uint
+		)
+		for {
+			token, err := decoder.Token()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return "", err
+			}
+			if xmlElement, ok := token.(xml.StartElement); ok && xmlElement.Name.Local == "si" {
 				si := xlsxSI{}
-				_ = decoder.DecodeElement(&si, &xmlElement)
-
+				if err = decoder.DecodeElement(&si, &xmlElement); err != nil {
+					return "", err
+				}
 				startIdx := offset
-				n, _ := f.sharedStringTemp.WriteString(si.String())
+				n, _ := sharedStringTemp.WriteString(si.String())
 				offset += uint(n)
-				f.sharedStringItem = append(f.sharedStringItem, []uint{startIdx, offset})
-				i++
+				sharedStringItem = append(sharedStringItem, []uint{startIdx, offset})
 			}
 		}
+		f.sharedStringItem = sharedStringItem
+		f.sharedStringTemp = sharedStringTemp
 	}
-	return f.getFromStringItem(index)
+	if index < 0 || len(f.sharedStringItem) <= index {
+		return "", newInvalidSharedStringIndex(index)
+	}
+	offsetRange := f.sharedStringItem[index]
+	if len(offsetRange) != 2 || offsetRange[0] > offsetRange[1] {
+		return "", newInvalidSharedStringIndex(index)
+	}
+	buf := make([]byte, offsetRange[1]-offsetRange[0])
+	if _, err := f.sharedStringTemp.ReadAt(buf, int64(offsetRange[0])); err != nil {
+		return "", err
+	}
+	return string(buf), nil
 }
 
 // xmlDecoder creates XML decoder by given path in the zip from memory data
