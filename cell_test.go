@@ -934,16 +934,16 @@ func TestGetCellRichText(t *testing.T) {
 	// Test get cell rich text when string item index overflow
 	ws, ok = f.Sheet.Load("xl/worksheets/sheet1.xml")
 	assert.True(t, ok)
-	ws.(*xlsxWorksheet).SheetData.Row[0].C[0] = xlsxC{V: "2", IS: &xlsxSI{}}
+	ws.(*xlsxWorksheet).SheetData.Row[0].C[0] = xlsxC{T: "s", V: "2", IS: &xlsxSI{}}
 	runs, err = f.GetCellRichText("Sheet1", "A1")
-	assert.NoError(t, err)
+	assert.Equal(t, newInvalidSharedStringIndex(2), err)
 	assert.Equal(t, 0, len(runs))
 	// Test get cell rich text when string item index is negative
 	ws, ok = f.Sheet.Load("xl/worksheets/sheet1.xml")
 	assert.True(t, ok)
 	ws.(*xlsxWorksheet).SheetData.Row[0].C[0] = xlsxC{T: "s", V: "-1", IS: &xlsxSI{}}
 	runs, err = f.GetCellRichText("Sheet1", "A1")
-	assert.NoError(t, err)
+	assert.Equal(t, newInvalidSharedStringIndex(-1), err)
 	assert.Equal(t, 0, len(runs))
 	// Test get cell rich text when string item index is invalid
 	ws, ok = f.Sheet.Load("xl/worksheets/sheet1.xml")
@@ -1082,6 +1082,13 @@ func TestSetCellRichText(t *testing.T) {
 	assert.Equal(t, richTextRun, runs)
 
 	assert.NoError(t, f.SaveAs(filepath.Join("test", "TestSetCellRichText.xlsx")))
+	// Test get cell rich text when shared strings table exceeds UnzipXMLSizeLimit
+	f2, err := OpenFile(filepath.Join("test", "TestSetCellRichText.xlsx"), Options{UnzipXMLSizeLimit: 128})
+	assert.NoError(t, err)
+	runs, err = f2.GetCellRichText("Sheet1", "A1")
+	assert.NoError(t, err)
+	assert.Equal(t, richTextRun, runs)
+	assert.NoError(t, f2.Close())
 	// Test set cell rich text on not exists worksheet
 	assert.EqualError(t, f.SetCellRichText("SheetN", "A1", richTextRun), "sheet SheetN does not exist")
 	// Test set cell rich text with invalid sheet name
@@ -1240,7 +1247,11 @@ func TestSharedStringsError(t *testing.T) {
 	assert.Empty(t, value)
 	// Cleanup undelete temporary files
 	assert.NoError(t, os.Remove(tempFile.(string)))
-	// Test reload the file error on set cell value and rich text. The error message was different between macOS and Windows
+	// Test reload the file error on get/set cell rich text and set cell value. The error message was different between macOS and Windows
+	_, err = f.GetCellRichText("Sheet1", "A19")
+	assert.Error(t, err)
+
+	f.tempFiles.Store(defaultXMLPathSharedStrings, "")
 	err = f.SetCellValue("Sheet1", "A19", "A19")
 	assert.Error(t, err)
 

@@ -375,13 +375,21 @@ func TestSharedStringsReader(t *testing.T) {
 	f = NewFile()
 	f.ContentTypes = nil
 	f.Pkg.Store(defaultXMLPathContentTypes, MacintoshCyrillicCharset)
-	_, err = f.sharedStringsReader()
+	sst, err := f.sharedStringsReader()
+	assert.Nil(t, sst)
+	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	sst, err = f.sharedStringsReader()
+	assert.Nil(t, sst)
 	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
 	// Test read shared strings with unsupported charset workbook relationships
 	f = NewFile()
 	f.Relationships.Delete(defaultXMLPathWorkbookRels)
 	f.Pkg.Store(defaultXMLPathWorkbookRels, MacintoshCyrillicCharset)
-	_, err = f.sharedStringsReader()
+	sst, err = f.sharedStringsReader()
+	assert.Nil(t, sst)
+	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	sst, err = f.sharedStringsReader()
+	assert.Nil(t, sst)
 	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
 }
 

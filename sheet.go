@@ -86,13 +86,14 @@ func (f *File) NewSheet(sheet string) (int, error) {
 // [Content_Types].xml structure after deserialization.
 func (f *File) contentTypesReader() (*xlsxTypes, error) {
 	if f.ContentTypes == nil {
-		f.ContentTypes = new(xlsxTypes)
-		f.ContentTypes.mu.Lock()
-		defer f.ContentTypes.mu.Unlock()
+		contentTypes := new(xlsxTypes)
+		contentTypes.mu.Lock()
+		defer contentTypes.mu.Unlock()
 		if err := f.xmlNewDecoder(bytes.NewReader(namespaceStrictToTransitional(f.readXML(defaultXMLPathContentTypes)))).
-			Decode(f.ContentTypes); err != nil && err != io.EOF {
+			Decode(contentTypes); err != nil && err != io.EOF {
 			return f.ContentTypes, err
 		}
+		f.ContentTypes = contentTypes
 	}
 	return f.ContentTypes, nil
 }

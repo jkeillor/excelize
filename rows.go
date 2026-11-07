@@ -547,18 +547,18 @@ func (f *File) sharedStringsReader() (*xlsxSST, error) {
 		if sharedStrings.UniqueCount == 0 {
 			sharedStrings.UniqueCount = sharedStrings.Count
 		}
-		f.SharedStrings = &sharedStrings
-		for i := range sharedStrings.SI {
-			if sharedStrings.SI[i].T != nil {
-				f.sharedStringsMap[sharedStrings.SI[i].T.Val] = i
-			}
-		}
 		if err = f.addContentTypePart(0, "sharedStrings"); err != nil {
 			return f.SharedStrings, err
 		}
 		rels, err := f.relsReader(relPath)
 		if err != nil {
 			return f.SharedStrings, err
+		}
+		f.SharedStrings = &sharedStrings
+		for i := range sharedStrings.SI {
+			if sharedStrings.SI[i].T != nil {
+				f.sharedStringsMap[sharedStrings.SI[i].T.Val] = i
+			}
 		}
 		for _, rel := range rels.Relationships {
 			if rel.Target == "/xl/sharedStrings.xml" {

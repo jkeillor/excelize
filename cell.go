@@ -1250,12 +1250,15 @@ func (f *File) GetCellRichText(sheet, cell string) (runs []RichTextRun, err erro
 	if err != nil {
 		return
 	}
+	if err = f.sharedStringsLoader(); err != nil {
+		return
+	}
 	sst, err := f.sharedStringsReader()
 	if err != nil {
 		return
 	}
 	if len(sst.SI) <= siIdx || siIdx < 0 {
-		return
+		return runs, newInvalidSharedStringIndex(siIdx)
 	}
 	runs = getCellRichText(&sst.SI[siIdx])
 	return
