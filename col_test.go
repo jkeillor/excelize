@@ -68,12 +68,17 @@ func TestCols(t *testing.T) {
 	_, err = f.GetCols("Sheet:1")
 	assert.EqualError(t, err, ErrSheetNameInvalid.Error())
 	// Test columns iterator with unsupported charset shared strings table
+	assert.NoError(t, f.SetCellValue("Sheet1", "A1", "A1"))
 	f.SharedStrings = nil
 	f.Pkg.Store(defaultXMLPathSharedStrings, MacintoshCyrillicCharset)
 	cols, err = f.Cols("Sheet1")
 	assert.NoError(t, err)
-	cols.Next()
+	assert.True(t, cols.Next())
 	_, err = cols.Rows()
+	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	assert.EqualError(t, cols.Error(), "XML syntax error on line 1: invalid UTF-8")
+	// Test get columns with unsupported charset shared strings table
+	_, err = f.GetCols("Sheet1")
 	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
 
 	f = NewFile()
@@ -175,6 +180,7 @@ func TestGetColsError(t *testing.T) {
 	cols.sheetXML = fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="1"><c r="A" t="inlineStr"><is><t>A</t></is></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value)
 	_, err = cols.Rows()
 	assert.EqualError(t, err, newCellNameToCoordinatesError("A", newInvalidCellNameError("A")).Error())
+	assert.EqualError(t, cols.Error(), newCellNameToCoordinatesError("A", newInvalidCellNameError("A")).Error())
 
 	f.Pkg.Store("xl/worksheets/sheet1.xml", nil)
 	f.Sheet.Store("xl/worksheets/sheet1.xml", nil)

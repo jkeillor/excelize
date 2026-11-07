@@ -147,12 +147,16 @@ func (rows *Rows) Error() error {
 // Close closes the open worksheet XML file in the system temporary
 // directory.
 func (rows *Rows) Close() error {
+	var err error
 	tempFile := rows.tempFile
 	rows.tempFile = nil
 	if tempFile != nil {
-		return tempFile.Close()
+		err = tempFile.Close()
 	}
-	return rows.Error()
+	if rows.Error() != nil {
+		return rows.Error()
+	}
+	return err
 }
 
 // Columns return the current row's column values. This fetches the worksheet
@@ -166,6 +170,7 @@ func (rows *Rows) Columns(opts ...Options) ([]string, error) {
 	var token xml.Token
 	rows.rawCellValue = rows.f.getOptions(opts...).RawCellValue
 	if rows.sst, rowIterator.err = rows.f.sharedStringsReader(); rowIterator.err != nil {
+		rows.err = rowIterator.err
 		return rowIterator.cells, rowIterator.err
 	}
 	for {
@@ -190,12 +195,12 @@ func (rows *Rows) Columns(opts ...Options) ([]string, error) {
 				rows.token = token
 				rows.seekRowOpts = extractRowOpts(xmlElement.Attr)
 				if rows.curRow > rows.seekRow {
-					rows.token = nil
+					rows.err, rows.token = rowIterator.err, nil
 					return rowIterator.cells, rowIterator.err
 				}
 			}
 			if rows.rowXMLHandler(&rowIterator, &xmlElement, rows.rawCellValue); rowIterator.err != nil {
-				rows.token = nil
+				rows.err, rows.token = rowIterator.err, nil
 				return rowIterator.cells, rowIterator.err
 			}
 			rows.token = nil

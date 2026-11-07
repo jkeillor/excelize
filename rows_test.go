@@ -21,7 +21,13 @@ func TestGetRows(t *testing.T) {
 	f.SharedStrings = nil
 	f.Pkg.Store(defaultXMLPathSharedStrings, MacintoshCyrillicCharset)
 	_, err := f.GetRows("Sheet1")
-	assert.NoError(t, err)
+	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	// Test get rows with invalid cell reference in worksheet
+	f = NewFile()
+	f.Sheet.Delete("xl/worksheets/sheet1.xml")
+	f.Pkg.Store("xl/worksheets/sheet1.xml", fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="1"><c r="A"><v>0</v></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value))
+	_, err = f.GetRows("Sheet1")
+	assert.Equal(t, newCellNameToCoordinatesError("A", newInvalidCellNameError("A")), err)
 	// Test get rows with row number over max row number limit
 	f.Sheet.Delete("xl/worksheets/sheet1.xml")
 	f.Pkg.Store("xl/worksheets/sheet1.xml", fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="%d"><c t="s"><v>0</v></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value, TotalRows+1))
@@ -34,6 +40,14 @@ func TestGetRows(t *testing.T) {
 	f.Pkg.Store("xl/worksheets/sheet1.xml", fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="1"><c><v>1</v></c></row><row r="%d"><c><v>2</v></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value, TotalRows+1))
 	_, err = f.GetRows("Sheet1")
 	assert.Equal(t, ErrMaxRows, err)
+	// Test get rows when worksheet is backed by a temporary file and shared strings table fails
+	f, err = OpenFile(filepath.Join("test", "Book1.xlsx"), Options{UnzipXMLSizeLimit: 128})
+	assert.NoError(t, err)
+	f.SharedStrings = nil
+	f.Pkg.Store(defaultXMLPathSharedStrings, MacintoshCyrillicCharset)
+	_, err = f.GetRows("Sheet1")
+	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	assert.NoError(t, f.Close())
 }
 
 func TestRows(t *testing.T) {
@@ -94,6 +108,8 @@ func TestRows(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = rows.Columns()
 	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
+	assert.EqualError(t, rows.Error(), "XML syntax error on line 1: invalid UTF-8")
+	assert.EqualError(t, rows.Close(), "XML syntax error on line 1: invalid UTF-8")
 }
 
 func TestRowsIterator(t *testing.T) {
@@ -263,6 +279,7 @@ func TestColumns(t *testing.T) {
 	assert.NoError(t, err)
 
 	rows.decoder = f.xmlNewDecoder(bytes.NewReader([]byte(`<worksheet><sheetData><row r="1"><c r="A" t="s"><v>1</v></c></row></sheetData></worksheet>`)))
+	rows.err = nil
 	assert.True(t, rows.Next())
 	_, err = rows.Columns()
 	assert.Equal(t, newCellNameToCoordinatesError("A", newInvalidCellNameError("A")), err)

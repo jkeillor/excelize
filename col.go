@@ -61,10 +61,13 @@ func (f *File) GetCols(sheet string, opts ...Options) ([][]string, error) {
 	}
 	results := make([][]string, 0, 64)
 	for cols.Next() {
-		col, _ := cols.Rows(opts...)
+		col, err := cols.Rows(opts...)
+		if err != nil {
+			break
+		}
 		results = append(results, col)
 	}
-	return results, nil
+	return results, cols.Error()
 }
 
 // Next will return true if the next column is found.
@@ -86,6 +89,7 @@ func (cols *Cols) Rows(opts ...Options) ([]string, error) {
 	}
 	cols.rawCellValue = cols.f.getOptions(opts...).RawCellValue
 	if cols.sst, rowIterator.err = cols.f.sharedStringsReader(); rowIterator.err != nil {
+		cols.err = rowIterator.err
 		return rowIterator.cells, rowIterator.err
 	}
 	decoder := cols.f.xmlNewDecoder(bytes.NewReader(cols.sheetXML))
@@ -106,6 +110,7 @@ func (cols *Cols) Rows(opts ...Options) ([]string, error) {
 				}
 			}
 			if cols.rowXMLHandler(&rowIterator, &xmlElement, decoder); rowIterator.err != nil {
+				cols.err = rowIterator.err
 				return rowIterator.cells, rowIterator.err
 			}
 		case xml.EndElement:
