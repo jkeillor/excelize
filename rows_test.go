@@ -48,6 +48,16 @@ func TestGetRows(t *testing.T) {
 	_, err = f.GetRows("Sheet1")
 	assert.EqualError(t, err, "XML syntax error on line 1: invalid UTF-8")
 	assert.NoError(t, f.Close())
+	// Test get rows with invalid shared string index
+	f = NewFile()
+	f.Sheet.Delete("xl/worksheets/sheet1.xml")
+	f.Pkg.Store("xl/worksheets/sheet1.xml", fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="1"><c r="A1" t="s"><v>-1</v></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value))
+	_, err = f.GetRows("Sheet1")
+	assert.Equal(t, newInvalidSharedStringIndex(-1), err)
+	// Test get rows with non-numeric shared string index
+	f.Pkg.Store("xl/worksheets/sheet1.xml", fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="1"><c r="A1" t="s"><v>a</v></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value))
+	_, err = f.GetRows("Sheet1")
+	assert.EqualError(t, err, `strconv.Atoi: parsing "a": invalid syntax`)
 }
 
 func TestRows(t *testing.T) {

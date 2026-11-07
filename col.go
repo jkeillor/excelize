@@ -179,7 +179,8 @@ func (cols *Cols) rowXMLHandler(rowIterator *rowXMLIterator, xmlElement *xml.Sta
 		if rowIterator.cellCol == cols.curCol {
 			colCell := xlsxC{}
 			_ = decoder.DecodeElement(&colCell, xmlElement)
-			val, _ := colCell.getValueFrom(cols.f, cols.sst, cols.rawCellValue)
+			var val string
+			val, rowIterator.err = colCell.getValueFrom(cols.f, cols.sst, cols.rawCellValue)
 			rowIterator.cells = append(rowIterator.cells, val)
 		}
 	}

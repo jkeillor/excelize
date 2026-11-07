@@ -284,7 +284,9 @@ func (sw *StreamWriter) getRowValues(hRow, hCol, vCol int) (res []string, err er
 			if col < hCol || col > vCol {
 				continue
 			}
-			res[col-hCol], _ = c.getValueFrom(sw.file, nil, false)
+			if res[col-hCol], err = c.getValueFrom(sw.file, sw.file.SharedStrings, false); err != nil {
+				return nil, err
+			}
 		}
 		return res, nil
 	}

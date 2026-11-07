@@ -542,6 +542,11 @@ func TestStreamWriterReader(t *testing.T) {
 	_, err = sw.getRowValues(1, 1, 1)
 	assert.EqualError(t, err, "XML syntax error on line 1: element <c> closed by </row>")
 	sw.rawData.buf.Reset()
+	// Test getRowValues with invalid shared string index
+	sw.rawData.buf.WriteString("<worksheet><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c></row></worksheet>")
+	_, err = sw.getRowValues(1, 1, 1)
+	assert.Equal(t, newInvalidSharedStringIndex(0), err)
+	sw.rawData.buf.Reset()
 }
 
 func TestStreamWriterGetRowElement(t *testing.T) {

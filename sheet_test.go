@@ -219,6 +219,12 @@ func TestSearchSheet(t *testing.T) {
 	assert.Equal(t, newCoordinatesToCellNameError(1, 0), err)
 	assert.Equal(t, []string(nil), result)
 
+	// Test search sheet with invalid shared string index
+	f.Pkg.Store("xl/worksheets/sheet1.xml", []byte(`<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>-1</v></c></row></sheetData></worksheet>`))
+	result, err = f.SearchSheet("Sheet1", "A")
+	assert.Equal(t, newInvalidSharedStringIndex(-1), err)
+	assert.Equal(t, []string(nil), result)
+
 	// Test search sheet with unsupported charset shared strings table
 	f.SharedStrings = nil
 	f.Pkg.Store(defaultXMLPathSharedStrings, MacintoshCyrillicCharset)

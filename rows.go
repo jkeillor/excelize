@@ -256,7 +256,8 @@ func (rows *Rows) rowXMLHandler(rowIterator *rowXMLIterator, xmlElement *xml.Sta
 			}
 		}
 		blank := rowIterator.cellCol - len(rowIterator.cells)
-		if val, _ := colCell.getValueFrom(rows.f, rows.sst, raw); val != "" || colCell.F != nil {
+		var val string
+		if val, rowIterator.err = colCell.getValueFrom(rows.f, rows.sst, raw); val != "" || colCell.F != nil {
 			rowIterator.cells = append(appendSpace(blank, rowIterator.cells), val)
 		}
 	}

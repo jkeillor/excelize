@@ -182,6 +182,13 @@ func TestGetColsError(t *testing.T) {
 	assert.EqualError(t, err, newCellNameToCoordinatesError("A", newInvalidCellNameError("A")).Error())
 	assert.EqualError(t, cols.Error(), newCellNameToCoordinatesError("A", newInvalidCellNameError("A")).Error())
 
+	// Test get columns with invalid shared string index
+	f = NewFile()
+	f.Sheet.Delete("xl/worksheets/sheet1.xml")
+	f.Pkg.Store("xl/worksheets/sheet1.xml", fmt.Appendf(nil, `<worksheet xmlns="%s"><sheetData><row r="1"><c r="A1" t="s"><v>-1</v></c></row></sheetData></worksheet>`, NameSpaceSpreadSheet.Value))
+	_, err = f.GetCols("Sheet1")
+	assert.Equal(t, newInvalidSharedStringIndex(-1), err)
+
 	f.Pkg.Store("xl/worksheets/sheet1.xml", nil)
 	f.Sheet.Store("xl/worksheets/sheet1.xml", nil)
 	_, err = f.Cols("Sheet1")

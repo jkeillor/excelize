@@ -590,6 +590,16 @@ func TestGetValueFrom(t *testing.T) {
 	assert.Equal(t, newInvalidSharedStringIndex(-1), err)
 	assert.Empty(t, value)
 
+	c = xlsxC{T: "s", V: "a"}
+	value, err = c.getValueFrom(f, &xlsxSST{Count: 1, SI: []xlsxSI{{}, {T: &xlsxT{Val: "s"}}}}, false)
+	assert.EqualError(t, err, `strconv.Atoi: parsing "a": invalid syntax`)
+	assert.Empty(t, value)
+
+	c = xlsxC{T: "s", V: "0"}
+	value, err = c.getValueFrom(f, nil, false)
+	assert.Equal(t, newInvalidSharedStringIndex(0), err)
+	assert.Empty(t, value)
+
 	f.tempFiles.Store(defaultXMLPathSharedStrings, "")
 	f.sharedStringTemp, err = os.CreateTemp(os.TempDir(), "excelize-")
 	assert.NoError(t, err)

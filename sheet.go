@@ -1156,7 +1156,10 @@ func (f *File) searchSheet(name, value string, regSearch bool) (result []string,
 			if inElement == "c" {
 				colCell := xlsxC{}
 				_ = decoder.DecodeElement(&colCell, &xmlElement)
-				val, _ := colCell.getValueFrom(f, sst, false)
+				var val string
+				if val, err = colCell.getValueFrom(f, sst, false); err != nil {
+					return result, err
+				}
 				if regSearch {
 					if !regex.MatchString(val) {
 						continue
